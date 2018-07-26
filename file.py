@@ -18,7 +18,8 @@ with open('timeLists.csv', 'w') as output:
     for val in l:
         writer.writerow([val])
 
-query="can you tell me the  time today"
+""" ----------------------------add a query here in the below variable---------------------------------------------------"""
+query="can you tell me the summary of meeting"
 words = word_tokenize(query)
 filtered_query = [w for w in words if not w in stopWords]
 filtered_query = []
@@ -39,30 +40,14 @@ if "current" in filtered_query or "today" in filtered_query:
         d=now.date()
         speak.Speak('Todays Date is %s'%d.isoformat())
 
-query="can you tell me the summary of meeting"
-words = word_tokenize(query)
-filtered_query = [w for w in words if not w in stopWords]
-filtered_query = []
-for w in words:
-    if w not in stopWords:
-        filtered_query.append(w)
-print(filtered_query)
-if "summary" in filtered_query and "meeting" in filtered_query:
+elif "summary" in filtered_query and "meeting" in filtered_query:
        with open("timeLists.csv",'r') as input:
            read = csv.reader(input)
            speak.Speak("the Short summary for the previous meeting is")
            for row in read:
                speak.Speak(row)
-    
-query="When is the next meeting"
-words = word_tokenize(query)
-filtered_query = [w for w in words if not w in stopWords]
-filtered_query = []
-for w in words:
-    if w not in stopWords:
-        filtered_query.append(w)
-print(filtered_query)
-if ("time" and "meeting" in filtered_query) or ("when" and "meeting" in filtered_query):
+               
+elif ("time" and "meeting" in filtered_query) or ("when" and "meeting" in filtered_query):
     with open("timeLists.csv",'r') as input:
            read = csv.reader(input)
            for row in read:
