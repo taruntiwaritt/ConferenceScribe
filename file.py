@@ -1,129 +1,153 @@
-import datetime
-import win32com.client as wincl
-import csv
+
 import re
-from PyDictionary import PyDictionary
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize, sent_tokenize
-from weather import Weather, Unit
-speak = wincl.Dispatch("SAPI.SpVoice")
+import nltk
+import heapq
+import random
+from textblob import TextBlob
+import pyaudio
+import wave
 import speech_recognition as sr
-r = sr.Recognizer()
-m = sr.Microphone()
-stopWords = set (stopwords.words ("english"))
-with open ('helloworld.txt') as fp:
-    lines = fp.read ().split (".")
-l = list()
-for line in lines:
-    if 'am' in line or 'pm' in line or 'o\' clock' in line or 'time' in line or 'meeting' in line or 'location' in line:
-        l.append (line)
-qq="meaning of abrasive"
-for st in l:
-    st.replace("\n","")
-with open ('timeLists.csv', 'w') as output:
-    writer = csv.writer (output, lineterminator='\n')
-    for val in l:
-        writer.writerow ([val])
-#i=input("Press Enter To  Start Application ")
-speak.Speak ("Hello! How can I help you?")
-try:
-    with m as source:
-        r.adjust_for_ambient_noise (source)
-    while True:
-        with m as source:
-            audio = r.listen (source)
-            try:
-                value = r.recognize_google (audio)
-                if str is bytes:
-                    query = u"{}".format (value).encode ("utf-8")
-                else:
-                    query = "{}".format (value)
+import win32com.client as wincl
+import tkinter as tk
+speak = wincl.Dispatch("SAPI.SpVoice")
 
-                if(query=="goodbye"):
-                    break
-                print(query)
-                words = word_tokenize (query)
-                filtered_query = [w for w in words if not w in stopWords]
-                filtered_query = []
-                for w in words:
-                    if w not in stopWords:
-                        filtered_query.append (w)
 
-                now = datetime.datetime.now ()
-                str = now.date ()
-                type (str)
-                if "current" in filtered_query or "today" in filtered_query:
-                    if "time" in query:
-                        t = now.time ()
-                        speak.Speak ('Time right now is %s' % t.hour)
-                        speak.Speak (t.minute)
-                    if "date" in query:
-                        d = now.date ()
-                        speak.Speak ('Todays Date is %s' % d.isoformat ())
-
-                elif "summary" in filtered_query and "meeting" in filtered_query:
-                    with open ("timeLists.csv", 'r') as input:
-                        read = csv.reader (input)
-                        speak.Speak ("the Short summary for the previous meeting is")
-                        for row in read:
-                            row[0].replace("\n","")
-                            speak.Speak (row)
-
-                elif ("time" in filtered_query and "meeting" in filtered_query) or ("when" in filtered_query and "meeting" in filtered_query):
-                    with open ("timeLists.csv", 'r') as input:
-                        read = csv.reader (input)
-                        for row in read:
-                            v = row[0]
-                            reg = re.findall(r'((0[0-1]|[1-59]\d)(:(0[0-1]|[1-59]\d)\s(AM|am|PM|pm))?)', v)
-                            day = re.findall(r'\b((mon|tues|wed(nes)?|thur(s)?|fri|sat(ur)?|sun)(day)?)\b', v)
-                            if reg:
-                                reg.sort(reverse=True)
-                                speak.Speak(reg[0][0])
-                                if day:
-                                    day.sort(reverse=True)
-                                    speak.Speak(day[0][0])
-                elif ("location" in filtered_query and "meeting" in filtered_query):
-                    with open ("timeLists.csv", 'r') as input:
-                        read = csv.reader (input)
-                        for row in read:
-                            v=row[0]
-                            if("location" in v and "meeting" in v):
-                                speak.Speak(v)
-                                
-                elif("weather" in filtered_query or "prediction" in filtered_query):
-                    weather = Weather(unit=Unit.CELSIUS)
-                    location = weather.lookup_by_location('chennai')
-                    x=1
-                    z=0
-                    forecasts = location.forecast
-                    for forecast in forecasts:
-                        if z<x:
-                            speak.Speak("the prediction for chennai is ")
-                            speak.Speak(forecast.text+"For the day")
-                            speak.Speak(forecast.date)
-                            speak.Speak("Highest temperature today will be")
-                            speak.Speak(forecast.high)
-                            speak.Speak("and Lowest temperature today will be")
-                            speak.Speak(forecast.low)
-                            z=z+1
-                       
-                elif("meaning" in filtered_query):
-                    dictionary = PyDictionary()
-                    wordList=qq.split(' ')
-                    print(wordList)
-                    for word in wordList:
-                        if(word!="meaning" and word!="Meaning"):
-                            print(dictionary.meaning(word))
-                            speak.Speak(word)
-                            speak.Speak(dictionary.meaning(word))
-
-            except sr.UnknownValueError:
-                pass
-            except sr.RequestError as e:
-                pass
-            except KeyboardInterrupt:
-                pass
-except KeyboardInterrupt:
+def audioToText():
+    speak.Speak("Recording started")
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 2
+    RATE = 44100
+    CHUNK = 1024
+    RECORD_SECONDS = 5
+    WAVE_OUTPUT_FILENAME = "output.wav"   #filename different to prerecorded audio
     
-    pass
-speak.Speak ("Thank You. Hope you got your response.")
+    audio = pyaudio.PyAudio()
+    
+    # start Recording
+    stream = audio.open(format=FORMAT, channels=CHANNELS,
+                    rate=RATE, input=True,
+                    frames_per_buffer=CHUNK)
+    
+    print("recording...")
+    frames = []
+    
+    for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
+        data = stream.read(CHUNK)
+        frames.append(data)
+    
+    speak.Speak("recording ended")
+    
+    
+    stream.stop_stream()
+    stream.close()
+    audio.terminate()
+    waveFile = wave.open(WAVE_OUTPUT_FILENAME, 'wb')
+    waveFile.setnchannels(CHANNELS)
+    waveFile.setsampwidth(audio.get_sample_size(FORMAT))
+    waveFile.setframerate(RATE)
+    waveFile.writeframes(b''.join(frames))
+    waveFile.close()
+    r=sr.Recognizer()
+    with sr.WavFile("file_Audio.wav") as source:     
+        audio = r.record(source) 
+    speak.Speak("You said-")
+    try:
+        str=r.recognize_google(audio)
+        print(str)
+        speak.Speak(str)
+    except:
+        speak.Speak("Connection problem or Voice unclear")
+        print("voice unclear")
+    with open("inputFile.txt",'w') as ir:
+        ir.write(str)
+        
+        
+'''win = tk.Tk() 
+win.title('Text Editor')
+win.geometry('500x500')  
+button = tk.Button(win, text="Login", bg="green")#, command=attempt_log_in)
+button.grid(row=5, column=2)
+button.bind('<Button-1>', audioToText)'''
+
+audioToText()
+    
+#PREPROCESSING TEXT DATA
+with open("input_File.txt") as fp:
+    text = fp.read() 
+#text=re.sub(r'\s+'," ",text)
+text=text.lower()
+ages=nltk.sent_tokenize(text)
+lines=text.split('.')
+#print(lines)
+for i in range(len(lines)):
+    lines[i]=lines[i].strip('\n')
+print(lines)
+stop_words=nltk.corpus.stopwords.words('english')
+ 
+ 
+#COMBINING RELATIVE SENTENCES
+l=len(lines)
+conjuction=['and','since','therefore','while','nor','or','but','so','yet','this']
+for i in range(1,l):
+    continous=0
+    #print(i,l,len(lines))
+    if i>=len(lines):
+        break
+    lines[i].replace('\n','')
+    for conjucts in conjuction:
+        if(lines[i].startswith(conjucts)):
+            continous=1
+            #print (lines[i])
+            break
+    if continous==1:
+        lines[i-1]+=' '+lines[i]
+        del lines[i]
+
+
+#CALCULATING COUNT FOR EVERY WORD
+words_count={}
+for line in lines:
+    for word in nltk.word_tokenize(line):
+        if word not in stop_words:
+            if word not in words_count:
+                words_count[word]=1
+            else:
+                words_count[word]=words_count[word]+1
+                
+for key in words_count.keys():
+    words_count[key]=words_count[key]/max(words_count.values())
+    
+    
+#RANKING SENTENCES BASED ON WORDCOUNT RATIOS
+sentence_score={}
+for sentence in lines:
+    for word in nltk.word_tokenize(sentence):
+        if(word in words_count.keys()):
+            if sentence not in sentence_score:
+                sentence_score[sentence]=words_count[word]
+            else:
+                sentence_score[sentence]+=words_count[word]
+                
+
+#CALCULATING TOP 5 SENTENCES           
+summary=heapq.nlargest(5,sentence_score,key=sentence_score.get)
+speak.Speak("Conversation Summary is")
+
+#POST PROCESSING 
+for i in range(len(summary)):
+    #print(para)
+    summary[i]=summary[i].replace('\n','')
+speak.Speak(summary)
+print("The summary derived is-")
+print(summary)
+blob=TextBlob(text)
+summary_nouns=list()
+for word,tag in blob.tags:
+    if tag=='NN':
+        summary_nouns.append(word.lemmatize())
+        
+print("this conversation was about ...")
+for item in random.sample(summary_nouns,5):
+    word=item
+    print(word)
+    
